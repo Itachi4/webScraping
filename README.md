@@ -26,7 +26,8 @@ Install Dependencies
 npm install
 
 Run the API
-npx ts-node src/scrape.ts
+
+**npx ts-node src/scrape.ts**
 
 Using Postman for Scraping Listings
 1. Open Postman
