@@ -36,7 +36,7 @@ Ensure the API is running locally at http://localhost:3000
 URL: http://localhost:3000/scrape
 {
   "query": "top home listings",
-  "city": "New York"
+  "city": "Chicago"
 }
 
 3. Expected Response
