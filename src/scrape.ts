@@ -11,6 +11,8 @@ interface Listing {
     price: string | null;
     address: string | null;
     link: string | null;
+    beds?: string | null;
+    baths?: string | null;
 }
 
 /**
@@ -93,7 +95,13 @@ async function scrapeZillowListings(page: Page): Promise<Listing[]> {
             const address = card.querySelector('address[data-test="property-card-addr"]')?.textContent?.trim() || null;
             let link = card.querySelector('a[data-test="property-card-link"]')?.getAttribute("href");
             link = link ? new URL(link, baseUrl).href : null;
-            results.push({ price, address, link });
+
+            // Extract beds and baths
+            const detailsList = card.querySelectorAll('ul[class*="StyledPropertyCardHomeDetailsList"] li');
+            const beds = detailsList.length > 0 ? detailsList[0]?.textContent?.trim() || null : null;
+            const baths = detailsList.length > 1 ? detailsList[1]?.textContent?.trim() || null : null;
+
+            results.push({ price, address, link, beds, baths });
         });
 
         return results;
