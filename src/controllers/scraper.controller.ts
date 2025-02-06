@@ -5,7 +5,7 @@ import { getZillowURL, scrapeZillowListings } from "../services/zillow.service";
 export async function scrapeListings(req: Request, res: Response): Promise<void> {
     try {
         console.log("Received scrape request...");
-        const { query, city } = req.body;
+        const { query, zil = " zillow ", city } = req.body;
 
         if (!query || !city) {
             res.status(400).json({ error: 'Please provide both "query" and "city".' });
@@ -17,7 +17,7 @@ export async function scrapeListings(req: Request, res: Response): Promise<void>
         const page = await browser.newPage();
         await page.setDefaultNavigationTimeout(60000);
 
-        const zillowUrl = await getZillowURL(page, `${query} ${city}`);
+        const zillowUrl = await getZillowURL(page, `${query} ${city} " zillow "`);
         if (!zillowUrl) throw new Error("No Zillow link found.");
         console.log("Found Zillow URL:", zillowUrl);
 
