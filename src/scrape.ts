@@ -76,79 +76,108 @@ async function getZillowURL(page: Page, query: string): Promise<string | null> {
 }
 
 /**
- * Extracts real estate listings from a Zillow page.
+ * Extracts real estate listings from multiple Zillow pages.
  * @param {Page} page - The Puppeteer page instance.
  * @returns {Promise<Listing[]>} A list of extracted listings.
  */
-async function scrapeZillowListings(page: Page): Promise<Listing[]> {
-    console.log("Scrolling to load more listings...");
-    await autoScroll(page);
+/**
+ * Extracts real estate listings from multiple Zillow pages dynamically.
+ * @param {Page} page - The Puppeteer page instance.
+ * @param {string} baseUrl - The Zillow URL without page numbers (e.g., "/chicago-il/")
+ * @returns {Promise<Listing[]>} A list of extracted listings.
+ */
+async function scrapeZillowListings(page: Page, baseUrl: string): Promise<Listing[]> {
+    console.log("Starting property listing extraction...");
 
-    console.log("Extracting property listings...");
-    return await page.evaluate(() => {
-        const results: Listing[] = [];
-        const baseUrl = window.location.origin;
-        const cards = document.querySelectorAll('div[class*="StyledPropertyCardDataWrapper"]');
+    let allListings: Listing[] = [];
+    let pageCounter = 1; // Start from Page 1
+    const maxPages = 4; // Limit pagination to 4 pages
 
-        cards.forEach((card) => {
-            const price = card.querySelector('span[data-test="property-card-price"]')?.textContent?.trim() || null;
-            const address = card.querySelector('address[data-test="property-card-addr"]')?.textContent?.trim() || null;
-            let link = card.querySelector('a[data-test="property-card-link"]')?.getAttribute("href");
-            link = link ? new URL(link, baseUrl).href : null;
+    while (pageCounter <= maxPages) {
+        console.log(`Scraping page ${pageCounter}...`);
 
-            // Extract beds and baths
-            const detailsList = card.querySelectorAll('ul[class*="StyledPropertyCardHomeDetailsList"] li');
-            const beds = detailsList.length > 0 ? detailsList[0]?.textContent?.trim() || null : null;
-            const baths = detailsList.length > 1 ? detailsList[1]?.textContent?.trim() || null : null;
+        // Auto-scroll to load listings
+        await autoScroll(page);
 
-            results.push({ price, address, link, beds, baths });
+        let listings: Listing[] = await page.evaluate(() => {
+            const results: Listing[] = [];
+            const baseUrl = window.location.origin;
+            const cards = document.querySelectorAll('div[class*="StyledPropertyCardDataWrapper"]');
+
+            cards.forEach((card) => {
+                const price = card.querySelector('span[data-test="property-card-price"]')?.textContent?.trim() || null;
+                const address = card.querySelector('address[data-test="property-card-addr"]')?.textContent?.trim() || null;
+                let link = card.querySelector('a[data-test="property-card-link"]')?.getAttribute("href");
+                link = link ? new URL(link, baseUrl).href : null;
+                results.push({ price, address, link });
+            });
+
+            return results;
         });
 
-        return results;
-    });
+        if (listings.length === 0) {
+            console.log("No more listings found, stopping pagination.");
+            break;
+        }
+
+        allListings.push(...listings);
+
+        // Construct the next page URL manually
+        pageCounter++;
+        const nextPageUrl = pageCounter === 2 ? `${baseUrl}${pageCounter}_p/` : `${baseUrl}${pageCounter}_p/`;
+        console.log(`Navigating to next page: ${nextPageUrl}`);
+
+        await page.goto(nextPageUrl, { waitUntil: "domcontentloaded" });
+    }
+
+    console.log("Finished extracting listings.");
+    return allListings;
 }
 
-/**
- * Express route for scraping Zillow listings.
- * Expects a POST request with query and city in JSON.
- */
+
 app.post("/scrape", async (req: Request, res: Response): Promise<void> => {
     try {
         console.log("Received scrape request...");
-        const { query, zill = " zillow ", city } = req.body;
+        const { query, city } = req.body;
         if (!query || !city) {
             res.status(400).json({ error: 'Please provide both "query" and "city".' });
             return;
         }
 
-        console.log("Puppeteer Launch");
-        const browser: Browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+        console.log("Launching Puppeteer...");
+        const browser: Browser = await puppeteer.launch({
+            headless: false,
+            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        });
         const page = await browser.newPage();
         await page.setDefaultNavigationTimeout(60000);
-        await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36");
+        await page.setUserAgent(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+        );
 
-        // Step 1: Get Zillow URL from Search
         const zillowUrl = await getZillowURL(page, `${query} ${city}`);
         if (!zillowUrl) throw new Error("No Zillow link found in search results.");
         console.log("Found Zillow URL:", zillowUrl);
 
-        // Step 2: Navigate to Zillow and scrape listings
+        // Extract base URL (remove trailing "/")
+        const baseUrl = zillowUrl.endsWith("/") ? zillowUrl : `${zillowUrl}/`;
+
         console.log("Navigating to Zillow...");
-        await page.goto(zillowUrl, { waitUntil: "domcontentloaded" });
-        console.log("Final Zillow URL after navigation:", page.url());
+        await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 
-        const listings = await scrapeZillowListings(page);
+        const listings = await scrapeZillowListings(page, baseUrl);
 
-        console.log("Closing browser");
+        console.log("Closing browser...");
         await browser.close();
 
-        console.log("Returning scraped data");
+        console.log("Returning scraped data...");
         res.json({ searchQuery: query, city, listings });
     } catch (error: any) {
         console.error("Scraping error:", error);
         res.status(500).json({ error: error.toString() });
     }
 });
+
 
 /**
  * Starts the Express server on the specified port.
