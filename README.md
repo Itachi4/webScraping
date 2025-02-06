@@ -26,7 +26,8 @@ Install Dependencies
 npm install
 
 Run the API
-npx ts-node src/scrape.ts
+
+**npx ts-node src/scrape.ts**
 
 Using Postman for Scraping Listings
 1. Open Postman
@@ -35,19 +36,21 @@ Ensure the API is running locally at http://localhost:3000
 URL: http://localhost:3000/scrape
 {
   "query": "top home listings",
-  "city": "New York"
+  "city": "Chicago"
 }
 
 3. Expected Response
 
 {
-  "searchQuery": "Zillow homes",
-  "city": "New York",
-  "listings": [
-    {
-      "price": "$500,000",
-      "address": "123 Main St, New York, NY",
-      "link": "https://www.zillow.com/homedetails/..."
-    }
-  ]
+    "searchQuery": "top home listings",
+    "city": "chicago",
+    "listings": [
+        {
+            "price": "$574,900",
+            "address": "525 W Superior St APT 124, Chicago, IL 60654",
+            "link": "https://www.zillow.com/homedetails/525-W-Superior-St-APT-124-Chicago-IL-60654/60267947_zpid/",
+            "beds": "2 bds",
+            "baths": "2 ba"
+        },
+        ]
 }
