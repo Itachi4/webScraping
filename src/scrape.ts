@@ -180,7 +180,7 @@ app.post("/scrape", async (req: Request, res: Response): Promise<void> => {
 
 
 /**
- * Starts the Express server on the specified port.
+ * Starts the Express server on the specified ports.
  */
 const PORT = process.env.PORT || 3000;
 console.log("Starting server...");
